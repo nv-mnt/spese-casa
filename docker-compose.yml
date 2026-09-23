@@ -1,0 +1,70 @@
+name: spese-casa
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: spese-casa-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-spese}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-spese}
+      POSTGRES_DB: ${POSTGRES_DB:-spese_casa}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-spese} -d ${POSTGRES_DB:-spese_casa}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: spese-casa-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-spese}:${POSTGRES_PASSWORD:-spese}@db:5432/${POSTGRES_DB:-spese_casa}
+      SECRET_KEY: ${SECRET_KEY:-cambiami-in-produzione-openssl-rand-hex-32}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-30}
+      SQL_ECHO: ${SQL_ECHO:-False}
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      DEFAULT_MEMBER_A: ${DEFAULT_MEMBER_A:-Giuseppe}
+      DEFAULT_MEMBER_B: ${DEFAULT_MEMBER_B:-Angela}
+      DEFAULT_CURRENCY: ${DEFAULT_CURRENCY:-EUR}
+      # Applica le migrazioni e carica il seed al primo avvio.
+      RUN_MIGRATIONS: "true"
+      RUN_SEED: "true"
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # In Docker nginx fa da reverse proxy: percorso relativo.
+        VITE_API_BASE_URL: /api/v1
+    container_name: spese-casa-frontend
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+
+volumes:
+  postgres_data:
