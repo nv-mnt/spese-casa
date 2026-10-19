@@ -61,6 +61,12 @@ class PersonalPeriod(Base, SoftDeleteMixin):
     expenses: Mapped[list[PersonalExpense]] = relationship(
         back_populates="period", cascade="all, delete-orphan", passive_deletes=True
     )
+    card_readings: Mapped[list[CardBalanceReading]] = relationship(
+        back_populates="period",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="CardBalanceReading.rilevato_il",
+    )
 
 
 class Income(Base, SoftDeleteMixin):
@@ -169,3 +175,49 @@ class PersonalExpense(Base, SoftDeleteMixin):
         return self.source_type is not None
 
     period: Mapped[PersonalPeriod] = relationship(back_populates="expenses")
+
+
+class CardBalanceReading(Base):
+    """Una **rilevazione del saldo carta**: quanto c'e' davvero, e quando.
+
+    Serve a chi non segna le spese piccole. Invece di pretendere che ogni
+    uscita sia tracciata, ogni tanto si dichiara il saldo reale letto dalla
+    banca. La rilevazione **include gia'** le uscite marcate come pagate in
+    quel momento: per questo ne memorizziamo le somme (``entrate_tracciate``
+    e ``uscite_pagate_tracciate``), cosi' da li' in avanti si applicano solo
+    i movimenti **successivi** e non si conta due volta nulla.
+
+    La differenza fra il saldo dichiarato e quello che ci si aspettava e' lo
+    scostamento: di fatto le piccole spese mai registrate.
+    """
+
+    __tablename__ = "card_balance_readings"
+    __table_args__ = (
+        CheckConstraint(
+            "entrate_tracciate >= 0 AND uscite_pagate_tracciate >= 0",
+            name="ck_card_reading_tracciati_non_negativi",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    personal_period_id: Mapped[int] = mapped_column(
+        ForeignKey("personal_periods.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    #: Saldo realmente presente sulla carta al momento della rilevazione.
+    #: Puo' essere negativo (carta in rosso / fido).
+    saldo: Mapped[Decimal] = mapped_column(nullable=False)
+    #: Quando il saldo e' stato letto (modificabile: si puo' registrare a posteriori).
+    rilevato_il: Mapped[datetime] = mapped_column(
+        server_default=func.now(), default=lambda: datetime.now(UTC), nullable=False, index=True
+    )
+    nota: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    #: Fotografia di cosa risultava tracciato quando si e' rilevato il saldo.
+    entrate_tracciate: Mapped[Decimal] = mapped_column(nullable=False)
+    uscite_pagate_tracciate: Mapped[Decimal] = mapped_column(nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(
+        server_default=func.now(), default=lambda: datetime.now(UTC), nullable=False
+    )
+
+    period: Mapped[PersonalPeriod] = relationship(back_populates="card_readings")

@@ -42,10 +42,38 @@ class Expense(Base, SoftDeleteMixin):
     paid_by_id: Mapped[int] = mapped_column(
         ForeignKey("members.id", ondelete="RESTRICT"), nullable=False, index=True
     )
+    #: Chi sostiene la spesa.
+    #:
+    #: * ``None`` (default) -> spesa condivisa, divisa 50/50;
+    #: * valorizzato        -> spesa **interamente a carico** di quel membro.
+    #:
+    #: Se coincide con ``paid_by_id`` la spesa e' neutra sul saldo (te la sei
+    #: pagata da solo); se e' l'altro membro, questi deve l'importo intero.
+    a_carico_di_id: Mapped[int | None] = mapped_column(
+        ForeignKey("members.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     importo: Mapped[Decimal] = mapped_column(nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), default=lambda: datetime.now(UTC), nullable=False
     )
 
     period: Mapped[Period] = relationship(back_populates="expenses")
-    paid_by: Mapped[Member] = relationship(back_populates="expenses", lazy="joined")
+    # `foreign_keys` esplicito: verso members ci sono due FK (chi paga e chi
+    # sostiene la spesa), quindi SQLAlchemy da solo non saprebbe quale usare.
+    paid_by: Mapped[Member] = relationship(
+        back_populates="expenses", lazy="joined", foreign_keys=[paid_by_id]
+    )
+    a_carico_di: Mapped[Member | None] = relationship(
+        lazy="joined", foreign_keys=[a_carico_di_id]
+    )
+
+    @property
+    def divisa_a_meta(self) -> bool:
+        return self.a_carico_di_id is None
+
+    def quota_di(self, member_id: int) -> Decimal:
+        """Quanto di questa spesa grava su ``member_id``."""
+        importo = Decimal(self.importo)
+        if self.a_carico_di_id is None:
+            return importo / 2
+        return importo if self.a_carico_di_id == member_id else Decimal("0")

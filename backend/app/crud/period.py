@@ -47,18 +47,31 @@ async def list_periods_with_totals(
         select(
             Expense.period_id,
             Expense.paid_by_id,
+            Expense.a_carico_di_id,
             func.count(Expense.id),
             func.coalesce(func.sum(Expense.importo), 0),
         )
         .where(Expense.period_id.in_(period_ids), vivi(Expense))
-        .group_by(Expense.period_id, Expense.paid_by_id)
+        # Si raggruppa anche per "a carico di": serve a capire quanto di ogni
+        # gruppo grava su un membro invece che a meta'.
+        .group_by(Expense.period_id, Expense.paid_by_id, Expense.a_carico_di_id)
     )
 
     conteggi: dict[int, int] = {pid: 0 for pid in period_ids}
     pagato: dict[int, dict[int, Decimal]] = {pid: {} for pid in period_ids}
-    for period_id, paid_by_id, n, somma in agg.all():
+    #: Quanto grava su ciascun membro, tenendo conto delle spese intestate.
+    dovuto: dict[int, dict[int, Decimal]] = {pid: {} for pid in period_ids}
+    for period_id, paid_by_id, a_carico_di_id, n, somma in agg.all():
         conteggi[period_id] += int(n)
-        pagato[period_id][paid_by_id] = Decimal(somma)
+        importo = Decimal(somma)
+        pagato[period_id][paid_by_id] = pagato[period_id].get(paid_by_id, ZERO) + importo
+        quote = dovuto[period_id]
+        if a_carico_di_id is None:
+            meta = importo / 2
+            for m in members:
+                quote[m.id] = quote.get(m.id, ZERO) + meta
+        else:
+            quote[a_carico_di_id] = quote.get(a_carico_di_id, ZERO) + importo
 
     agg_entrate = await db.execute(
         select(
@@ -89,9 +102,12 @@ async def list_periods_with_totals(
         totale = quantize(sum(p_pagato.values(), ZERO))
         entrate_comuni = quantize(sum(p_ricevuto.values(), ZERO))
         if member_a is not None and member_b is not None:
+            meta_entrate = entrate_comuni / 2
+            p_dovuto = dovuto[p.id]
             balance = compute_balance(
                 p_pagato.get(member_a.id, ZERO) - p_ricevuto.get(member_a.id, ZERO),
                 p_pagato.get(member_b.id, ZERO) - p_ricevuto.get(member_b.id, ZERO),
+                dovuto_a=p_dovuto.get(member_a.id, ZERO) - meta_entrate,
             )
             saldo = balance.saldo
         else:  # pragma: no cover - household sempre con 2 membri

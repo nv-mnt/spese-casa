@@ -14,9 +14,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.trash import soft_delete, vivi
 from app.models.enums import CategoriaEntrata
-from app.models.personal import Income, PersonalExpense, PersonalPeriod
+from app.models.personal import (
+    CardBalanceReading,
+    Income,
+    PersonalExpense,
+    PersonalPeriod,
+)
 from app.schemas.common import quantize
 from app.schemas.personal import (
+    CardBalanceReadingCreate,
+    CardBalanceReadingUpdate,
     IncomeCreate,
     IncomeUpdate,
     PersonalExpenseCreate,
@@ -319,3 +326,84 @@ async def delete_expense(
     db: AsyncSession, expense: PersonalExpense, *, utente_id: int | None = None
 ) -> None:
     await soft_delete(db, expense, utente_id=utente_id)
+
+
+# --------------------------------------------------------------------------- saldo carta
+
+
+async def list_card_readings(
+    db: AsyncSession, period_id: int
+) -> list[CardBalanceReading]:
+    """Rilevazioni del saldo carta, dalla piu' vecchia alla piu' recente."""
+    res = await db.execute(
+        select(CardBalanceReading)
+        .where(CardBalanceReading.personal_period_id == period_id)
+        .order_by(CardBalanceReading.rilevato_il, CardBalanceReading.id)
+    )
+    return list(res.scalars().all())
+
+
+async def get_card_reading(
+    db: AsyncSession, period_id: int, reading_id: int
+) -> CardBalanceReading | None:
+    res = await db.execute(
+        select(CardBalanceReading).where(
+            CardBalanceReading.id == reading_id,
+            CardBalanceReading.personal_period_id == period_id,
+        )
+    )
+    return res.scalar_one_or_none()
+
+
+async def _tracciato(db: AsyncSession, period_id: int) -> tuple[Decimal, Decimal]:
+    """Entrate totali e uscite gia' pagate **in questo momento**."""
+    incomes = await list_incomes(db, period_id)
+    expenses = await list_expenses(db, period_id)
+    entrate = quantize(sum((i.importo for i in incomes if i.importo is not None), ZERO))
+    pagate = quantize(
+        sum((e.importo for e in expenses if e.pagato and e.importo is not None), ZERO)
+    )
+    return entrate, pagate
+
+
+async def create_card_reading(
+    db: AsyncSession, period_id: int, payload: CardBalanceReadingCreate
+) -> CardBalanceReading:
+    """Registra il saldo reale, fotografando cosa risultava tracciato."""
+    entrate, pagate = await _tracciato(db, period_id)
+    reading = CardBalanceReading(
+        personal_period_id=period_id,
+        saldo=payload.saldo,
+        nota=payload.nota.strip() if payload.nota else None,
+        entrate_tracciate=entrate,
+        uscite_pagate_tracciate=pagate,
+    )
+    if payload.rilevato_il is not None:
+        reading.rilevato_il = payload.rilevato_il
+    db.add(reading)
+    await db.flush()
+    await db.refresh(reading)
+    return reading
+
+
+async def update_card_reading(
+    db: AsyncSession, reading: CardBalanceReading, payload: CardBalanceReadingUpdate
+) -> CardBalanceReading:
+    data = payload.model_dump(exclude_unset=True)
+    if "saldo" in data and data["saldo"] is not None:
+        reading.saldo = data["saldo"]
+    if "rilevato_il" in data and data["rilevato_il"] is not None:
+        reading.rilevato_il = data["rilevato_il"]
+    if "nota" in data:
+        nota = data["nota"]
+        reading.nota = nota.strip() if nota else None
+    await db.flush()
+    await db.refresh(reading)
+    return reading
+
+
+async def delete_card_reading(db: AsyncSession, reading: CardBalanceReading) -> None:
+    # Una rilevazione non va nel cestino: e' un dato che si rifa' in un secondo
+    # dichiarando di nuovo il saldo.
+    await db.delete(reading)
+    await db.flush()

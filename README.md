@@ -46,13 +46,20 @@ e **PWA installabile** su iPhone ([§ 9](#9-pwa-installarla-su-iphone)).
 * **Period** – l'equivalente di un foglio/tab del Google Sheet, tipicamente un
   mese ("Ottobre 2025"). Ha il proprio registro spese e il proprio saldo.
 * **Expense** – una riga del registro: data *(facoltativa, come le celle vuote
-  del foglio)*, descrizione, categoria, pagato da, importo.
+  del foglio)*, descrizione, categoria, pagato da, importo e **a carico di**.
+  Quest'ultimo campo è vuoto nel caso normale (spesa divisa 50/50); se invece
+  indica un membro, la spesa è **interamente a suo carico**. Se coincide con chi
+  ha pagato, la spesa è neutra sul saldo (te la sei pagata da solo); se è
+  l'altro, questi deve l'importo intero.
 * **CommonIncome** – un'**entrata comune**: soldi che rientrano nel bilancio di
   casa (un reso, un rimborso, un bonus) e si dividono 50/50 come le spese.
   Ha data *(facoltativa)*, descrizione, categoria, **ricevuto da** (chi ha
   materialmente incassato) e importo. Si comporta da spesa negativa.
 * **Settlement** – uno per periodo: `rimborso_versato` e `ricevuto`. Tutto il
   resto (dovuto, residuo, stato) è **calcolato**, mai memorizzato.
+* **CardBalanceReading** – una **rilevazione del saldo carta** nel budget
+  personale, per chi non segna le spese piccole: dichiari quanto c'è davvero
+  sulla carta e l'app smette di fidarsi del solo tracciato.
 * **RecurringExpenseTemplate** – modello configurabile delle spese fisse
   (Condominio, Affitto, Luce, Acqua) usato per precompilare i nuovi periodi.
 
@@ -73,13 +80,46 @@ Per ogni periodo:
 | Ha incassato *X* | somma delle entrate comuni con `ricevuto_da = X` |
 | **Contributo netto di *X*** | `ha_pagato_X - ha_incassato_X` (può essere negativo) |
 | Quota a testa (50%) | `netto_da_dividere / 2` |
-| Saldo | `abs(contributo_netto_X - quota_a_testa)` |
+| **Quota di *X*** | somma, spesa per spesa, di quanto grava su *X*: metà se divisa, tutto se intestata a lui, niente se intestata all'altro; meno metà delle entrate comuni |
+| Saldo | `abs(contributo_netto_X - quota_X)` |
 | Chi deve a chi | chi ha un contributo netto **sotto** la quota deve il saldo all'altro |
 | Importo dovuto | `= saldo` |
 | Residuo | `importo_dovuto - rimborso_versato` |
 
 Senza entrate comuni i numeri coincidono con quelli di prima: il netto è il
-totale speso e il contributo netto è quanto ha pagato ciascuno.
+totale speso e il contributo netto è quanto ha pagato ciascuno. Allo stesso
+modo, finché nessuna spesa è intestata a una sola persona, le due quote sono
+uguali e valgono `netto_da_dividere / 2`: il campo `divisione_semplice` del
+riepilogo dice se è questo il caso, così la UI può mostrare la singola riga
+"Quota a testa" invece delle due quote separate.
+
+Per evitare che l'arrotondamento al centesimo faccia sballare i conti, si
+calcola la quota del **primo** membro e si ricava quella del secondo per
+differenza: le due sommano sempre esattamente al netto. (Con una spesa da
+33,33 € divisa a metà, due quote arrotondate indipendentemente darebbero
+16,67 € ciascuna, cioè 33,34 € in totale.)
+
+### Saldo carta rilevato a mano
+
+Il budget personale calcola il saldo carta come `entrate totali - uscite già
+pagate`: esatto solo se **ogni** uscita è registrata. Chi non segna le spese
+piccole si ritrova quel numero più alto del reale.
+
+Registrando il saldo vero letto dalla banca, l'app memorizza anche quanto
+risultava tracciato in quel momento (`entrate_tracciate`,
+`uscite_pagate_tracciate`), così da lì in avanti applica **solo i movimenti
+successivi** e non conta due volte le uscite già marcate come pagate:
+
+```
+saldo carta = saldo rilevato
+            + (entrate di adesso       − entrate alla rilevazione)
+            − (uscite pagate di adesso − uscite pagate alla rilevazione)
+```
+
+Lo **scostamento** di una rilevazione è la differenza fra il saldo dichiarato e
+quello atteso partendo dalla precedente: in pratica le spese mai registrate.
+Negativo = sulla carta c'è meno di quanto risulta. Senza nessuna rilevazione
+tutto si comporta esattamente come prima.
 
 Stato del rimborso:
 
@@ -323,7 +363,7 @@ Crea `backend/.env` (oppure esporta le variabili a mano):
 DATABASE_URL=postgresql+asyncpg://spese:spese@localhost:5432/spese_casa
 SECRET_KEY=una-chiave-lunga-e-casuale-generata-con-openssl-rand-hex-32
 ENVIRONMENT=development
-BACKEND_CORS_ORIGINS=http://localhost:5173
+BACKEND_CORS_ORIGINS=http://localhost:5180
 ```
 
 Migrazioni, seed e avvio:
@@ -331,7 +371,7 @@ Migrazioni, seed e avvio:
 ```bash
 alembic upgrade head        # crea lo schema
 python -m app.seed          # carica il periodo d'esempio (--force per ricrearlo)
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8010
 ```
 
 Il seed stampa un autocontrollo dei totali:
@@ -354,12 +394,21 @@ npm install
 npm run dev
 ```
 
-Apri http://localhost:5173. In sviluppo Vite fa da proxy su `/api` verso
-`http://localhost:8000`: nessun problema di CORS e nessun URL assoluto nel
-codice. Per puntare a un backend diverso:
+Apri **http://localhost:5180**. In sviluppo Vite fa da proxy su `/api` verso
+`http://127.0.0.1:8010`: nessun problema di CORS e nessun URL assoluto nel
+codice.
+
+> Le porte di sviluppo sono 5180 e 8010, non le classiche 5173 e 8000, perche'
+> su quelle capita spesso di trovare altri progetti. Il proxy punta a
+> `127.0.0.1` e non a `localhost` di proposito: su macOS `localhost` risolve
+> prima `::1`, e se un altro servizio occupa quella porta in IPv6 le chiamate
+> finiscono sulla sua API, con 404 difficili da capire. In Docker nulla di
+> tutto questo si applica: li' nginx fa da proxy e le porte restano 3000 e 8000.
+
+Per puntare a un backend diverso:
 
 ```bash
-VITE_PROXY_TARGET=http://127.0.0.1:8899 npm run dev
+VITE_PROXY_TARGET=http://127.0.0.1:8000 npm run dev
 ```
 
 Altri comandi utili:
@@ -468,12 +517,12 @@ coincidano con il foglio.
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `30` | Durata del refresh token |
 | `ENVIRONMENT` | `development` | `development` / `test` / `production` |
 | `SQL_ECHO` | `False` | Log delle query SQL |
-| `BACKEND_CORS_ORIGINS` | `http://localhost:5173,…` | Origini ammesse, separate da virgola |
+| `BACKEND_CORS_ORIGINS` | `http://localhost:5180,…` | Origini ammesse, separate da virgola |
 | `DEFAULT_MEMBER_A` / `DEFAULT_MEMBER_B` | `Giuseppe` / `Angela` | Nomi dei membri creati alla registrazione |
 | `DEFAULT_HOUSEHOLD_NAME` | `Casa` | Nome di default dell'household |
 | `DEFAULT_CURRENCY` | `EUR` | Valuta |
 | `VITE_API_BASE_URL` | `/api/v1` | Base URL delle API lato frontend |
-| `VITE_PROXY_TARGET` | `http://localhost:8000` | Target del proxy Vite in sviluppo |
+| `VITE_PROXY_TARGET` | `http://127.0.0.1:8010` | Target del proxy Vite in sviluppo |
 
 ---
 
@@ -509,6 +558,8 @@ Eccetto `register`, `login`, `token` e `refresh`, richiedono l'header
 | `PATCH` `DELETE` | `/personal/periods/{id}/incomes/{income_id}` | Modifica / elimina entrata |
 | `GET` `POST` | `/personal/periods/{id}/expenses` | Uscite del mese / nuova uscita |
 | `PATCH` `DELETE` | `/personal/periods/{id}/expenses/{expense_id}` | Modifica (incluso `pagato`) / elimina |
+| `GET` `POST` | `/personal/periods/{id}/card-readings` | **Saldo carta**: storico / dichiara il saldo reale |
+| `PATCH` `DELETE` | `/personal/periods/{id}/card-readings/{reading_id}` | Corregge / elimina una rilevazione |
 | `GET` | `/personal/periods/{id}/summary` | **Riepilogo personale calcolato** |
 | `GET` | `/personal/periods/{id}/export.csv` | Export CSV di entrate e uscite |
 | `GET` | `/periods/trends` | **Andamento** multi-mese delle Spese casa (`?mesi=N`) |

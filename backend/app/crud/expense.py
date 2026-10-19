@@ -43,7 +43,7 @@ async def create_expense(db: AsyncSession, period_id: int, payload: ExpenseCreat
     expense = Expense(period_id=period_id, **payload.model_dump())
     db.add(expense)
     await db.flush()
-    await db.refresh(expense, attribute_names=["paid_by"])
+    await db.refresh(expense, attribute_names=["paid_by", "a_carico_di"])
     return expense
 
 
@@ -51,7 +51,7 @@ async def update_expense(db: AsyncSession, expense: Expense, payload: ExpenseUpd
     for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(expense, field, value)
     await db.flush()
-    await db.refresh(expense, attribute_names=["paid_by"])
+    await db.refresh(expense, attribute_names=["paid_by", "a_carico_di"])
     return expense
 
 

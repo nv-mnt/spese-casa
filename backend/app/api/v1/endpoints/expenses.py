@@ -30,6 +30,7 @@ async def create_expense(
     payload: ExpenseCreate, period: CurrentPeriod, db: DbSession, user: CurrentUser
 ) -> Expense:
     await validate_member_id(db, user.household_id, payload.paid_by_id)
+    await validate_member_id(db, user.household_id, payload.a_carico_di_id)
     expense = await crud_expense.create_expense(db, period.id, payload)
     await sync_period(db, period)
     await db.commit()
@@ -55,6 +56,7 @@ async def update_expense(
 ) -> Expense:
     expense = await _get_owned_expense(db, user.household_id, period.id, expense_id)
     await validate_member_id(db, user.household_id, payload.paid_by_id)
+    await validate_member_id(db, user.household_id, payload.a_carico_di_id)
     updated = await crud_expense.update_expense(db, expense, payload)
     await sync_period(db, period)
     await db.commit()

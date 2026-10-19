@@ -18,7 +18,9 @@ export function SummaryCard({ summary }: { summary: PeriodSummary }) {
           <span aria-hidden="true">&#128184;</span> Chi ha messo cosa
         </CardTitle>
         <span className="tabular text-xs font-bold text-muted-foreground">
-          {formatEuro(summary.quota_a_testa)} a testa
+          {summary.divisione_semplice
+            ? `${formatEuro(summary.quota_a_testa)} a testa`
+            : `${formatEuro(summary.totale_a_carico_singolo)} non divisi`}
         </span>
       </CardHeader>
 
@@ -63,6 +65,13 @@ export function SummaryCard({ summary }: { summary: PeriodSummary }) {
                   {formatEuro(riga.contributo_netto)}
                 </span>
               </div>
+
+              {/* Con spese intestate le quote sono diverse: vanno dette. */}
+              {!summary.divisione_semplice && (
+                <p className="tabular mt-0.5 text-right text-2xs text-muted-foreground">
+                  la sua quota: {formatEuro(riga.quota)}
+                </p>
+              )}
 
               {/* Il dettaglio serve solo quando c'e' qualcosa da sottrarre. */}
               {conEntrate && (

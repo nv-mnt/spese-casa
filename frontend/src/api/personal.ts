@@ -1,5 +1,7 @@
 import { api } from '@/api/client';
 import type {
+  CardBalanceReading,
+  CardBalanceReadingPayload,
   Income,
   IncomePayload,
   PersonalExpense,
@@ -86,6 +88,39 @@ export const personalApi = {
   },
   async removeExpense(periodId: number, expenseId: number): Promise<void> {
     await api.delete(`${base}/${periodId}/expenses/${expenseId}`);
+  },
+
+  // ------------------------------------------------------------ saldo carta
+
+  async listCardReadings(periodId: number): Promise<CardBalanceReading[]> {
+    const { data } = await api.get<CardBalanceReading[]>(
+      `${base}/${periodId}/card-readings`,
+    );
+    return data;
+  },
+  async createCardReading(
+    periodId: number,
+    payload: CardBalanceReadingPayload,
+  ): Promise<CardBalanceReading> {
+    const { data } = await api.post<CardBalanceReading>(
+      `${base}/${periodId}/card-readings`,
+      payload,
+    );
+    return data;
+  },
+  async updateCardReading(
+    periodId: number,
+    readingId: number,
+    payload: Partial<CardBalanceReadingPayload>,
+  ): Promise<CardBalanceReading> {
+    const { data } = await api.patch<CardBalanceReading>(
+      `${base}/${periodId}/card-readings/${readingId}`,
+      payload,
+    );
+    return data;
+  },
+  async removeCardReading(periodId: number, readingId: number): Promise<void> {
+    await api.delete(`${base}/${periodId}/card-readings/${readingId}`);
   },
 
   /** Scarica il CSV come Blob, cosi' da poterlo salvare lato browser. */

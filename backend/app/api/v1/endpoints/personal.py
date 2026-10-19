@@ -15,8 +15,16 @@ from fastapi import APIRouter, HTTPException, Path, Response, status
 
 from app.api.deps import CurrentPersonalPeriod, CurrentUser, DbSession
 from app.crud import personal as crud
-from app.models.personal import Income, PersonalExpense, PersonalPeriod
+from app.models.personal import (
+    CardBalanceReading,
+    Income,
+    PersonalExpense,
+    PersonalPeriod,
+)
 from app.schemas.personal import (
+    CardBalanceReadingCreate,
+    CardBalanceReadingOut,
+    CardBalanceReadingUpdate,
     IncomeCreate,
     IncomeOut,
     IncomeUpdate,
@@ -29,8 +37,9 @@ from app.schemas.personal import (
     PersonalPeriodUpdate,
     PersonalSummary,
 )
+from app.services.card_balance import scostamenti
 from app.services.personal_csv import personal_csv_filename, personal_to_csv
-from app.services.personal_summary import build_personal_summary
+from app.services.personal_summary import build_personal_summary, reading_out
 
 router = APIRouter(prefix="/personal", tags=["budget personale"])
 
@@ -266,6 +275,82 @@ async def delete_personal_expense(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+# --------------------------------------------------------------------------- saldo carta
+
+
+@router.get(
+    "/periods/{personal_period_id}/card-readings",
+    response_model=list[CardBalanceReadingOut],
+    summary="Storico delle rilevazioni del saldo carta",
+)
+async def list_card_readings(
+    period: CurrentPersonalPeriod, db: DbSession
+) -> list[CardBalanceReadingOut]:
+    readings = await crud.list_card_readings(db, period.id)
+    scost = scostamenti(readings)
+    return [reading_out(r, scost.get(r.id)) for r in readings]
+
+
+@router.post(
+    "/periods/{personal_period_id}/card-readings",
+    response_model=CardBalanceReadingOut,
+    status_code=status.HTTP_201_CREATED,
+    summary="Dichiara il saldo realmente presente sulla carta",
+)
+async def create_card_reading(
+    payload: CardBalanceReadingCreate, period: CurrentPersonalPeriod, db: DbSession
+) -> CardBalanceReadingOut:
+    reading = await crud.create_card_reading(db, period.id, payload)
+    await db.commit()
+    readings = await crud.list_card_readings(db, period.id)
+    return reading_out(reading, scostamenti(readings).get(reading.id))
+
+
+async def _get_card_reading(
+    db: DbSession, period_id: int, reading_id: int
+) -> CardBalanceReading:
+    reading = await crud.get_card_reading(db, period_id, reading_id)
+    if reading is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Rilevazione non trovata"
+        )
+    return reading
+
+
+@router.patch(
+    "/periods/{personal_period_id}/card-readings/{reading_id}",
+    response_model=CardBalanceReadingOut,
+    summary="Corregge una rilevazione",
+)
+async def update_card_reading(
+    payload: CardBalanceReadingUpdate,
+    period: CurrentPersonalPeriod,
+    db: DbSession,
+    reading_id: Annotated[int, Path(ge=1)],
+) -> CardBalanceReadingOut:
+    reading = await _get_card_reading(db, period.id, reading_id)
+    await crud.update_card_reading(db, reading, payload)
+    await db.commit()
+    readings = await crud.list_card_readings(db, period.id)
+    return reading_out(reading, scostamenti(readings).get(reading.id))
+
+
+@router.delete(
+    "/periods/{personal_period_id}/card-readings/{reading_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Elimina una rilevazione",
+)
+async def delete_card_reading(
+    period: CurrentPersonalPeriod,
+    db: DbSession,
+    reading_id: Annotated[int, Path(ge=1)],
+) -> Response:
+    reading = await _get_card_reading(db, period.id, reading_id)
+    await crud.delete_card_reading(db, reading)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 # --------------------------------------------------------------------------- riepilogo
 
 
@@ -282,6 +367,7 @@ async def get_personal_summary(
         incomes=await crud.list_incomes(db, period.id),
         expenses=await crud.list_expenses(db, period.id),
         valuta=user.household.valuta,
+        card_readings=await crud.list_card_readings(db, period.id),
     )
 
 

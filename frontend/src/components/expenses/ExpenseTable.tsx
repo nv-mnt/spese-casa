@@ -29,6 +29,19 @@ interface ExpenseTableProps {
   onDelete: (expense: Expense) => void;
 }
 
+/** Marca le spese che non si dividono a meta'. */
+function ACaricoPill({ nome }: { nome: string }) {
+  return (
+    <span
+      className="inline-flex shrink-0 items-center rounded-full border border-warning/40
+                 bg-warning/10 px-2 py-0.5 text-2xs font-bold text-warning"
+      title={`Spesa interamente a carico di ${nome}`}
+    >
+      tutta a {nome}
+    </span>
+  );
+}
+
 function CategoriaPill({ categoria }: { categoria: string }) {
   const stile = stileCategoria(categoria);
   return (
@@ -99,9 +112,10 @@ export function ExpenseTable({ expenses, onEdit, onDelete }: ExpenseTableProps) 
               <p className="mt-1 text-xs text-muted-foreground">
                 {formatDate(e.data)} &middot; {stileCategoria(e.categoria).emoji} {e.categoria}
               </p>
-              <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 <MemberAvatar {...e.paid_by} size="xs" />
                 {e.paid_by.nome}
+                {e.a_carico_di && <ACaricoPill nome={e.a_carico_di.nome} />}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1">
@@ -152,9 +166,10 @@ export function ExpenseTable({ expenses, onEdit, onDelete }: ExpenseTableProps) 
                   <CategoriaPill categoria={e.categoria} />
                 </TableCell>
                 <TableCell>
-                  <span className="flex items-center gap-2 text-sm text-foreground">
+                  <span className="flex flex-wrap items-center gap-2 text-sm text-foreground">
                     <MemberAvatar {...e.paid_by} size="xs" />
                     {e.paid_by.nome}
+                    {e.a_carico_di && <ACaricoPill nome={e.a_carico_di.nome} />}
                   </span>
                 </TableCell>
                 <TableCell className="tabular whitespace-nowrap text-right font-semibold text-foreground">

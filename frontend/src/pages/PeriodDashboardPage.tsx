@@ -176,16 +176,31 @@ export function PeriodDashboardPage() {
           emoji={'\u{1F4B8}'}
           tone="primary"
         />
-        <StatCard
-          label="Quota a testa"
-          value={formatEuro(summary.quota_a_testa)}
-          hint={
-            summary.entrate_comuni_totali > 0
-              ? `metà di ${formatEuro(summary.netto_da_dividere)} netti`
-              : 'Metà per uno'
-          }
-          emoji={'\u{1F91D}'}
-        />
+        {/* Con spese intestate le quote non sono uguali: dire "a testa"
+            sarebbe falso, quindi si mostrano entrambe. */}
+        {summary.divisione_semplice ? (
+          <StatCard
+            label="Quota a testa"
+            value={formatEuro(summary.quota_a_testa)}
+            hint={
+              summary.entrate_comuni_totali > 0
+                ? `metà di ${formatEuro(summary.netto_da_dividere)} netti`
+                : 'Metà per uno'
+            }
+            emoji={'\u{1F91D}'}
+          />
+        ) : (
+          <StatCard
+            label="Quote"
+            value={summary.per_membro.map((m) => formatEuro(m.quota)).join('  /  ')}
+            hint={`${summary.per_membro
+              .map((m) => m.member.nome)
+              .join(' / ')} \u00b7 ${formatEuro(
+              summary.totale_a_carico_singolo,
+            )} non divisi`}
+            emoji={'\u{1F91D}'}
+          />
+        )}
         <StatCard
           label="Saldo"
           value={formatEuro(summary.saldo)}

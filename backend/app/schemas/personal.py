@@ -114,6 +114,55 @@ class CategoriaUscitaTotale(BaseModel):
     percentuale: float
 
 
+class CardBalanceReadingCreate(BaseModel):
+    """Dichiarazione del saldo realmente presente sulla carta."""
+
+    #: Puo' essere negativo (carta in rosso).
+    saldo: Decimal = Field(le=Decimal("9999999999"), ge=Decimal("-9999999999"), decimal_places=2)
+    #: Omesso = adesso.
+    rilevato_il: datetime | None = None
+    nota: str | None = Field(default=None, max_length=255)
+
+
+class CardBalanceReadingUpdate(BaseModel):
+    saldo: Decimal | None = Field(
+        default=None, le=Decimal("9999999999"), ge=Decimal("-9999999999"), decimal_places=2
+    )
+    rilevato_il: datetime | None = None
+    nota: str | None = Field(default=None, max_length=255)
+
+
+class CardBalanceReadingOut(ORMModel):
+    id: int
+    personal_period_id: int
+    saldo: Money
+    rilevato_il: datetime
+    nota: str | None
+    #: Cosa risultava tracciato al momento della rilevazione.
+    entrate_tracciate: Money
+    uscite_pagate_tracciate: Money
+    #: Saldo dichiarato - saldo atteso. Negativo = spese non registrate.
+    scostamento: Money
+    created_at: datetime
+
+
+class CardBalanceBlock(BaseModel):
+    """Blocco "Saldo carta" del riepilogo personale."""
+
+    #: True quando esiste almeno una rilevazione: il saldo non e' piu' il
+    #: semplice calcolo entrate - uscite pagate.
+    rilevato: bool
+    #: Il saldo carta di adesso.
+    saldo_carta: Money
+    #: Saldo che risulterebbe dal solo tracciato (entrate - uscite pagate).
+    saldo_tracciato: Money
+    #: saldo_carta - saldo_tracciato: le spese mai registrate, cumulate.
+    scostamento_cumulato: Money
+    #: Ultima rilevazione, se c'e'.
+    ultima_rilevazione: CardBalanceReadingOut | None
+    n_rilevazioni: int
+
+
 class PersonalSummary(BaseModel):
     """I quattro numeri del blocco RIEPILOGO, piu' il dettaglio per categoria."""
 
@@ -136,3 +185,6 @@ class PersonalSummary(BaseModel):
     n_uscite_in_sospeso: int
 
     per_categoria: list[CategoriaUscitaTotale]
+
+    #: Saldo carta rilevato a mano (per chi non segna le spese piccole).
+    carta: CardBalanceBlock

@@ -20,8 +20,8 @@ from app.services.summary import build_period_summary
 from app.models.period import Period
 from app.models.settlement import Settlement
 
-HEADER = ["Data", "Descrizione", "Categoria", "Pagato da", "Importo"]
-HEADER_ENTRATE = ["Data", "Descrizione", "Categoria", "Ricevuto da", "Importo"]
+HEADER = ["Data", "Descrizione", "Categoria", "Pagato da", "A carico di", "Importo"]
+HEADER_ENTRATE = ["Data", "Descrizione", "Categoria", "Ricevuto da", "", "Importo"]
 
 
 def _fmt_money(value: Decimal) -> str:
@@ -47,6 +47,8 @@ def expenses_to_csv(
                 e.descrizione,
                 e.categoria.value,
                 e.paid_by.nome if e.paid_by else "",
+                # Vuoto = divisa a meta', il caso normale.
+                e.a_carico_di.nome if e.a_carico_di else "",
                 _fmt_money(Decimal(e.importo)),
             ]
         )
@@ -76,16 +78,16 @@ def expenses_to_csv(
 
     writer.writerow([])
     writer.writerow(["RIEPILOGO", period.nome])
-    writer.writerow(["Totale speso", "", "", "", _fmt_money(summary.totale_speso)])
+    writer.writerow(["Totale speso", "", "", "", "", _fmt_money(summary.totale_speso)])
     writer.writerow(
-        ["Entrate comuni totali", "", "", "", _fmt_money(summary.entrate_comuni_totali)]
+        ["Entrate comuni totali", "", "", "", "", _fmt_money(summary.entrate_comuni_totali)]
     )
-    writer.writerow(["Netto da dividere", "", "", "", _fmt_money(summary.netto_da_dividere)])
+    writer.writerow(["Netto da dividere", "", "", "", "", _fmt_money(summary.netto_da_dividere)])
     for mt in summary.per_membro:
-        writer.writerow([f"Ha pagato {mt.member.nome}", "", "", "", _fmt_money(mt.ha_pagato)])
+        writer.writerow([f"Ha pagato {mt.member.nome}", "", "", "", "", _fmt_money(mt.ha_pagato)])
         if summary.entrate_comuni_totali > 0:
             writer.writerow(
-                [f"Ha incassato {mt.member.nome}", "", "", "", _fmt_money(mt.ha_ricevuto)]
+                [f"Ha incassato {mt.member.nome}", "", "", "", "", _fmt_money(mt.ha_ricevuto)]
             )
             writer.writerow(
                 [
@@ -96,20 +98,38 @@ def expenses_to_csv(
                     _fmt_money(mt.contributo_netto),
                 ]
             )
-    writer.writerow(["Quota a testa (50%)", "", "", "", _fmt_money(summary.quota_a_testa)])
-    writer.writerow(["Saldo", "", "", "", _fmt_money(summary.saldo)])
+    if summary.divisione_semplice:
+        writer.writerow(
+            ["Quota a testa (50%)", "", "", "", "", _fmt_money(summary.quota_a_testa)]
+        )
+    else:
+        for mt in summary.per_membro:
+            writer.writerow(
+                [f"Quota di {mt.member.nome}", "", "", "", "", _fmt_money(mt.quota)]
+            )
+        writer.writerow(
+            [
+                "di cui a carico di uno solo",
+                "",
+                "",
+                "",
+                "",
+                _fmt_money(summary.totale_a_carico_singolo),
+            ]
+        )
+    writer.writerow(["Saldo", "", "", "", "", _fmt_money(summary.saldo)])
     writer.writerow([summary.chi_deve_a_chi])
 
     writer.writerow([])
     writer.writerow(["PER CATEGORIA"])
     for ct in summary.per_categoria:
-        writer.writerow([ct.categoria.value, "", "", "", _fmt_money(ct.totale)])
+        writer.writerow([ct.categoria.value, "", "", "", "", _fmt_money(ct.totale)])
 
     writer.writerow([])
     writer.writerow(["RIMBORSO E SALDO"])
-    writer.writerow(["Importo dovuto", "", "", "", _fmt_money(summary.rimborso.importo_dovuto)])
-    writer.writerow(["Rimborso versato", "", "", "", _fmt_money(summary.rimborso.rimborso_versato)])
-    writer.writerow(["Residuo", "", "", "", _fmt_money(summary.rimborso.residuo)])
+    writer.writerow(["Importo dovuto", "", "", "", "", _fmt_money(summary.rimborso.importo_dovuto)])
+    writer.writerow(["Rimborso versato", "", "", "", "", _fmt_money(summary.rimborso.rimborso_versato)])
+    writer.writerow(["Residuo", "", "", "", "", _fmt_money(summary.rimborso.residuo)])
     writer.writerow(["Stato", summary.rimborso.stato_label])
     writer.writerow(["Ricevuto?", "Si" if summary.rimborso.ricevuto else "No"])
 

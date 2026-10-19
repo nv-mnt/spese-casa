@@ -20,6 +20,8 @@ const schema = z.object({
     .max(255, 'Massimo 255 caratteri'),
   categoria: z.enum(CATEGORIE, { message: 'Scegli una categoria' }),
   paid_by_id: z.coerce.number().int().positive('Scegli chi ha pagato'),
+  // Stringa vuota = divisa a meta' (il caso normale).
+  a_carico_di_id: z.string(),
   importo: z
     .string()
     .trim()
@@ -44,6 +46,7 @@ function defaultValues(expense: Expense | null | undefined, members: Member[]): 
     descrizione: expense?.descrizione ?? '',
     categoria: expense?.categoria ?? 'Spesa',
     paid_by_id: expense?.paid_by_id ?? members[0]?.id ?? 0,
+    a_carico_di_id: expense?.a_carico_di_id ? String(expense.a_carico_di_id) : '',
     importo: expense ? expense.importo.toFixed(2).replace('.', ',') : '',
   };
 }
@@ -75,6 +78,8 @@ export function ExpenseForm({
       descrizione: values.descrizione.trim(),
       categoria: values.categoria,
       paid_by_id: Number(values.paid_by_id),
+      a_carico_di_id:
+        values.a_carico_di_id === '' ? null : Number(values.a_carico_di_id),
       importo: Number(parseItalianAmount(values.importo).toFixed(2)),
     });
   });
@@ -131,6 +136,20 @@ export function ExpenseForm({
             ))}
           </SelectField>
         </div>
+
+        <SelectField
+          label="A carico di"
+          hint="Di norma si divide a meta'. Scegli una persona se la spesa e' tutta sua."
+          error={errors.a_carico_di_id?.message}
+          {...register('a_carico_di_id')}
+        >
+          <option value="">Entrambi &mdash; divisa a meta&apos;</option>
+          {members.map((m) => (
+            <option key={m.id} value={m.id}>
+              Solo {m.nome}
+            </option>
+          ))}
+        </SelectField>
       </div>
 
       <div className="flex flex-col-reverse gap-2 border-t border-border bg-muted/40 px-5 py-3 sm:flex-row sm:justify-end">

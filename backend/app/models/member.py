@@ -34,7 +34,11 @@ class Member(Base):
     )
 
     household: Mapped[Household] = relationship(back_populates="members")
-    expenses: Mapped[list[Expense]] = relationship(back_populates="paid_by")
+    # Le spese che questo membro ha **pagato** (non quelle a suo carico):
+    # verso expenses ci sono due FK, quindi va indicata quale usare.
+    expenses: Mapped[list[Expense]] = relationship(
+        back_populates="paid_by", foreign_keys="Expense.paid_by_id"
+    )
     common_incomes: Mapped[list[CommonIncome]] = relationship(back_populates="ricevuto_da")
     user: Mapped[User | None] = relationship(
         back_populates="member", foreign_keys=[user_id]

@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom';
 
 import { getErrorMessage } from '@/api/client';
 import { personalApi } from '@/api/personal';
+import { CardBalanceCard } from '@/components/personal/CardBalanceCard';
 import { IncomeForm } from '@/components/personal/IncomeForm';
 import { IncomeTable } from '@/components/personal/IncomeTable';
 import { PersonalCategoryCard } from '@/components/personal/PersonalCategoryCard';
@@ -231,7 +232,15 @@ export function PersonalDashboardPage() {
         <StatCard
           label="Saldo reale (carta)"
           value={formatEuro(s.saldo_reale)}
-          hint="Quanto hai davvero adesso"
+          hint={
+            s.carta.rilevato
+              ? `rilevato a mano${
+                  s.carta.scostamento_cumulato !== 0
+                    ? ` \u00b7 ${formatEuro(s.carta.scostamento_cumulato)} vs registro`
+                    : ''
+                }`
+              : 'Quanto hai davvero adesso'
+          }
           emoji={'\u{1F4B3}'}
           tone="primary"
         />
@@ -246,7 +255,10 @@ export function PersonalDashboardPage() {
 
       {/* Grafici */}
       <div className="mt-5 grid gap-4 xl:grid-cols-2">
-        <PersonalCategoryCard categorie={s.per_categoria} />
+        <div className="space-y-4">
+          <CardBalanceCard summary={s} />
+          <PersonalCategoryCard categorie={s.per_categoria} />
+        </div>
         <div className="space-y-4">
           <EntrateUsciteCard summary={s} />
           <AndamentoMesiCard periods={periods.data ?? []} />

@@ -107,7 +107,12 @@ async def build_trend_casa(
         .all()
     }
 
+    a, b = (members[0], members[1]) if len(members) == 2 else (None, None)
+
     pagato: dict[int, dict[int, Decimal]] = defaultdict(lambda: defaultdict(lambda: ZERO))
+    #: Quanto grava su ciascuno: diverso da meta' quando una spesa e'
+    #: interamente a carico di un membro.
+    dovuto: dict[int, dict[int, Decimal]] = defaultdict(lambda: defaultdict(lambda: ZERO))
     conteggi: dict[int, int] = defaultdict(int)
     tot_spese: dict[int, Decimal] = defaultdict(lambda: ZERO)
     per_cat: dict[str, Decimal] = defaultdict(lambda: ZERO)
@@ -115,6 +120,8 @@ async def build_trend_casa(
 
     for e in spese:
         pagato[e.period_id][e.paid_by_id] += Decimal(e.importo)
+        if a is not None:
+            dovuto[e.period_id][a.id] += e.quota_di(a.id)
         conteggi[e.period_id] += 1
         tot_spese[e.period_id] += Decimal(e.importo)
         per_cat[e.categoria.value] += Decimal(e.importo)
@@ -126,15 +133,15 @@ async def build_trend_casa(
         ricevuto[i.period_id][i.ricevuto_da_id] += Decimal(i.importo)
         tot_entrate[i.period_id] += Decimal(i.importo)
 
-    a, b = (members[0], members[1]) if len(members) == 2 else (None, None)
-
     punti: list[PuntoTrendCasa] = []
     # Dal piu' vecchio al piu' recente: un andamento si legge da sinistra.
     for p in reversed(periods):
         if a is not None and b is not None:
+            meta_entrate = tot_entrate[p.id] / 2
             balance = compute_balance(
                 pagato[p.id][a.id] - ricevuto[p.id][a.id],
                 pagato[p.id][b.id] - ricevuto[p.id][b.id],
+                dovuto_a=dovuto[p.id][a.id] - meta_entrate,
             )
             netto, saldo = balance.netto_da_dividere, balance.saldo
         else:  # pragma: no cover - household sempre con 2 membri

@@ -186,21 +186,22 @@ async def test_export_csv(auth_client: AsyncClient, seeded_period: dict):
 
     testo = res.content.decode("utf-8-sig")
     righe = testo.splitlines()
-    assert righe[0] == "Data;Descrizione;Categoria;Pagato da;Importo"
-    assert "01/10/2025;Affitto;Affitto;Angela;650,00" in righe
+    assert righe[0] == "Data;Descrizione;Categoria;Pagato da;A carico di;Importo"
+    # La colonna "A carico di" e' vuota: la spesa e' divisa a meta'.
+    assert "01/10/2025;Affitto;Affitto;Angela;;650,00" in righe
     # La riga senza data ha la prima colonna vuota.
-    assert ";Spesa Conad;Spesa;Angela;55,18" in righe
+    assert ";Spesa Conad;Spesa;Angela;;55,18" in righe
     # Coda di riepilogo.
-    assert "Totale speso;;;;3509,32" in testo
-    assert "Quota a testa (50%);;;;1754,66" in testo
-    assert "Saldo;;;;45,37" in testo
+    assert "Totale speso;;;;;3509,32" in testo
+    assert "Quota a testa (50%);;;;;1754,66" in testo
+    assert "Saldo;;;;;45,37" in testo
     assert "→ Giuseppe deve a Angela" in testo
-    assert "Importo dovuto;;;;45,37" in testo
+    assert "Importo dovuto;;;;;45,37" in testo
 
 
 async def test_export_csv_periodo_vuoto(auth_client: AsyncClient, period: dict):
     res = await auth_client.get(f"/api/v1/periods/{period['id']}/export.csv")
     assert res.status_code == 200
     testo = res.content.decode("utf-8-sig")
-    assert "Totale speso;;;;0,00" in testo
+    assert "Totale speso;;;;;0,00" in testo
     assert "Siete in pari" in testo

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from app.models.enums import Categoria, StatoSaldo
 from app.schemas.common import Money, ORMModel
 from app.schemas.member import MemberOut
@@ -13,7 +15,10 @@ class MemberTotal(ORMModel):
     ha_ricevuto: Money
     #: ha_pagato - ha_ricevuto. Puo' essere negativo.
     contributo_netto: Money
-    #: contributo_netto - quota_a_testa. Positivo = ha anticipato, negativo = deve.
+    #: Quanto grava davvero su questo membro (= quota a testa finche' tutte le
+    #: spese sono divise a meta').
+    quota: Money
+    #: contributo_netto - quota. Positivo = ha anticipato, negativo = deve.
     differenza: Money
 
 
@@ -60,4 +65,11 @@ class PeriodSummary(ORMModel):
     per_categoria: list[CategoryTotal]
     rimborso: SettlementBlock
     n_spese: int
-    n_entrate_comuni: int = 0
+    n_entrate_comuni: int
+
+    #: Spese intestate per intero a un solo membro (0 nel caso normale).
+    totale_a_carico_singolo: Money = Decimal("0.00")
+    n_spese_a_carico_singolo: int = 0
+    #: True quando tutto e' diviso 50/50: la UI mostra una sola riga
+    #: "Quota a testa" invece delle due quote separate.
+    divisione_semplice: bool = True

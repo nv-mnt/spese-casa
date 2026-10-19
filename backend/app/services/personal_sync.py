@@ -48,7 +48,7 @@ from app.models.period import Period
 from app.models.personal import Income, PersonalExpense, PersonalPeriod
 from app.models.settlement import Settlement
 from app.models.user import User
-from app.services.summary import compute_balance
+from app.services.summary import compute_balance, compute_dovuto_a
 
 ZERO = Decimal("0.00")
 
@@ -161,7 +161,11 @@ def _conguaglio_per_membro(
 
     a, b = members[0], members[1]
     balance = compute_balance(
-        pagato[a.id] - ricevuto[a.id], pagato[b.id] - ricevuto[b.id]
+        pagato[a.id] - ricevuto[a.id],
+        pagato[b.id] - ricevuto[b.id],
+        dovuto_a=compute_dovuto_a(
+            member_a_id=a.id, expenses=expenses, common_incomes=common_incomes
+        ),
     )
     if balance.debitore_index is None:
         return None

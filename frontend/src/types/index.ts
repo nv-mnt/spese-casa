@@ -73,6 +73,10 @@ export interface Expense {
   categoria: Categoria;
   paid_by_id: number;
   paid_by: Member;
+  /** null = spesa divisa 50/50; valorizzato = interamente a carico di lui. */
+  a_carico_di_id: number | null;
+  a_carico_di: Member | null;
+  divisa_a_meta: boolean;
   importo: number;
   created_at: string;
 }
@@ -82,6 +86,8 @@ export interface ExpensePayload {
   descrizione: string;
   categoria: Categoria;
   paid_by_id: number;
+  /** null = divisa a meta'. */
+  a_carico_di_id: number | null;
   importo: number;
 }
 
@@ -93,7 +99,9 @@ export interface MemberTotal {
   ha_ricevuto: number;
   /** ha_pagato - ha_ricevuto. Puo' essere negativo. */
   contributo_netto: number;
-  /** contributo_netto - quota_a_testa. */
+  /** Quanto grava davvero su di lui (= quota a testa se tutto e' diviso). */
+  quota: number;
+  /** contributo_netto - quota. */
   differenza: number;
 }
 
@@ -131,6 +139,11 @@ export interface PeriodSummary {
   rimborso: SettlementBlock;
   n_spese: number;
   n_entrate_comuni: number;
+  /** Somma delle spese intestate per intero a un solo membro. */
+  totale_a_carico_singolo: number;
+  n_spese_a_carico_singolo: number;
+  /** true = tutto diviso 50/50: basta la riga "Quota a testa". */
+  divisione_semplice: boolean;
 }
 
 export interface Settlement {
@@ -277,6 +290,37 @@ export interface PersonalSummary {
   n_uscite: number;
   n_uscite_in_sospeso: number;
   per_categoria: CategoriaUscitaTotale[];
+  carta: CardBalanceBlock;
+}
+
+/* -------------------------------------------------------------------- saldo carta */
+
+export interface CardBalanceReading {
+  id: number;
+  personal_period_id: number;
+  saldo: number;
+  rilevato_il: string;
+  nota: string | null;
+  entrate_tracciate: number;
+  uscite_pagate_tracciate: number;
+  /** Saldo dichiarato - saldo atteso. Negativo = spese non registrate. */
+  scostamento: number;
+  created_at: string;
+}
+
+export interface CardBalanceBlock {
+  rilevato: boolean;
+  saldo_carta: number;
+  saldo_tracciato: number;
+  scostamento_cumulato: number;
+  ultima_rilevazione: CardBalanceReading | null;
+  n_rilevazioni: number;
+}
+
+export interface CardBalanceReadingPayload {
+  saldo: number;
+  rilevato_il?: string;
+  nota?: string | null;
 }
 
 

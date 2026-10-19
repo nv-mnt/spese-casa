@@ -51,11 +51,16 @@ ZERO = Decimal("0.00")
 class Balance:
     """Esito del calcolo 50/50 fra due membri, al netto delle entrate comuni."""
 
-    #: Spese - entrate comuni: e' questo che si divide a meta'.
+    #: Spese - entrate comuni: e' questo che si divide fra i due.
     netto_da_dividere: Decimal
+    #: Quanto spetterebbe a testa se **tutto** fosse diviso a meta'.
     quota_a_testa: Decimal
     contributo_a: Decimal
     contributo_b: Decimal
+    #: Quanto grava davvero su ciascuno: coincide con ``quota_a_testa`` finche'
+    #: nessuna spesa e' interamente a carico di qualcuno.
+    dovuto_a: Decimal
+    dovuto_b: Decimal
     saldo: Decimal
     #: 0 = il primo membro e' in debito, 1 = il secondo, None = in pari.
     debitore_index: int | None
@@ -65,36 +70,73 @@ class Balance:
         return self.debitore_index is None
 
 
-def compute_balance(contributo_a: Decimal, contributo_b: Decimal) -> Balance:
-    """Calcola netto, quota 50% e saldo dai contributi netti dei due membri.
+def compute_balance(
+    contributo_a: Decimal,
+    contributo_b: Decimal,
+    *,
+    dovuto_a: Decimal | None = None,
+) -> Balance:
+    """Calcola netto, quote e saldo dai contributi netti dei due membri.
 
     Il contributo netto e' ``speso - incassato``: senza entrate comuni coincide
     con quanto un membro ha pagato. Puo' essere negativo se qualcuno ha
     incassato piu' di quanto ha speso.
+
+    ``dovuto_a`` e' quanto grava sul primo membro: omettendolo si divide tutto
+    a meta', che e' il caso normale, e va passato quando qualche spesa e'
+    **interamente a carico** di un membro (vedi ``compute_dovuto_a``). La quota
+    del secondo si ricava sempre per differenza, cosi' le due sommano esatte al
+    netto anche quando il mezzo centesimo non si puo' spartire.
     """
     netto_a = quantize(contributo_a)
     netto_b = quantize(contributo_b)
     netto = quantize(netto_a + netto_b)
     quota = quantize(netto / 2)
 
-    # Il saldo e' identico calcolandolo da una parte o dall'altra (a meno
-    # dell'eventuale centesimo di arrotondamento della quota, che per
-    # coerenza col foglio prendiamo sempre dal primo membro).
-    saldo = quantize(abs(netto_a - quota))
+    # Quote effettive: a meta' salvo diversa indicazione. Il secondo prende il
+    # resto, cosi' la somma delle due quote e' esattamente il netto.
+    quota_a = quota if dovuto_a is None else quantize(dovuto_a)
+    quota_b = quantize(netto - quota_a)
+
+    # Il saldo e' lo scarto fra quanto hai messo e quanto ti spettava.
+    saldo = quantize(abs(netto_a - quota_a))
 
     if saldo == ZERO:
         debitore_index: int | None = None
     else:
-        debitore_index = 0 if netto_a < quota else 1
+        debitore_index = 0 if netto_a < quota_a else 1
 
     return Balance(
         netto_da_dividere=netto,
         quota_a_testa=quota,
         contributo_a=netto_a,
         contributo_b=netto_b,
+        dovuto_a=quota_a,
+        dovuto_b=quota_b,
         saldo=saldo,
         debitore_index=debitore_index,
     )
+
+
+def compute_dovuto_a(
+    *,
+    member_a_id: int,
+    expenses: Sequence[Expense],
+    common_incomes: Sequence[CommonIncome] = (),
+) -> Decimal:
+    """Quanto grava sul **primo** membro, spesa per spesa.
+
+    Una spesa divisa vale meta' per uno; una interamente a carico di qualcuno
+    vale tutta per lui e niente per l'altro. Le entrate comuni restano sempre
+    divise a meta' e abbassano la quota di entrambi.
+
+    Si restituisce solo la quota del primo: quella del secondo e' il resto del
+    netto, e lasciarla calcolare per differenza evita che l'arrotondamento al
+    centesimo faccia sballare la somma.
+    """
+    dovuto = sum((e.quota_di(member_a_id) for e in expenses), ZERO)
+    entrate = sum((Decimal(i.importo) for i in common_incomes), ZERO)
+    return quantize(dovuto - entrate / 2)
 
 
 def compute_settlement_block(
@@ -182,6 +224,16 @@ def build_period_summary(
     balance = compute_balance(
         pagato[member_a.id] - ricevuto[member_a.id],
         pagato[member_b.id] - ricevuto[member_b.id],
+        dovuto_a=compute_dovuto_a(
+            member_a_id=member_a.id, expenses=expenses, common_incomes=common_incomes
+        ),
+    )
+
+    # Quando nessuna spesa e' intestata a una sola persona il riepilogo puo'
+    # mostrare la classica riga unica "Quota a testa (50%)".
+    spese_a_carico_singolo = [e for e in expenses if e.a_carico_di_id is not None]
+    totale_a_carico_singolo = quantize(
+        sum((Decimal(e.importo) for e in spese_a_carico_singolo), ZERO)
     )
 
     per_membro = [
@@ -190,14 +242,16 @@ def build_period_summary(
             ha_pagato=quantize(pagato[member_a.id]),
             ha_ricevuto=quantize(ricevuto[member_a.id]),
             contributo_netto=balance.contributo_a,
-            differenza=quantize(balance.contributo_a - balance.quota_a_testa),
+            quota=balance.dovuto_a,
+            differenza=quantize(balance.contributo_a - balance.dovuto_a),
         ),
         MemberTotal(
             member=MemberOut.model_validate(member_b),
             ha_pagato=quantize(pagato[member_b.id]),
             ha_ricevuto=quantize(ricevuto[member_b.id]),
             contributo_netto=balance.contributo_b,
-            differenza=quantize(balance.contributo_b - balance.quota_a_testa),
+            quota=balance.dovuto_b,
+            differenza=quantize(balance.contributo_b - balance.dovuto_b),
         ),
     ]
 
@@ -234,4 +288,7 @@ def build_period_summary(
         rimborso=rimborso,
         n_spese=len(expenses),
         n_entrate_comuni=len(common_incomes),
+        totale_a_carico_singolo=totale_a_carico_singolo,
+        n_spese_a_carico_singolo=len(spese_a_carico_singolo),
+        divisione_semplice=not spese_a_carico_singolo,
     )

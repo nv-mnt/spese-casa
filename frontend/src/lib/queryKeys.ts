@@ -18,6 +18,8 @@ export const queryKeys = {
   personalIncomes: (id: number) => ['personal', 'periods', id, 'incomes'] as const,
   personalExpenses: (id: number) => ['personal', 'periods', id, 'expenses'] as const,
   personalSummary: (id: number) => ['personal', 'periods', id, 'summary'] as const,
+  personalCardReadings: (id: number) =>
+    ['personal', 'periods', id, 'card-readings'] as const,
   trendPersonale: (mesi: number | null) => ['trends', 'personale', mesi] as const,
 
   /* Cestino: una chiave sola, filtrata lato client per sezione. */

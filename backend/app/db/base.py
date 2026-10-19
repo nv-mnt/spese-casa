@@ -7,6 +7,7 @@ from app.models.household import Household  # noqa: F401
 from app.models.member import Member  # noqa: F401
 from app.models.period import Period  # noqa: F401
 from app.models.personal import (  # noqa: F401
+    CardBalanceReading,
     Income,
     PersonalExpense,
     PersonalPeriod,
@@ -17,6 +18,7 @@ from app.models.user import User  # noqa: F401
 
 __all__ = [
     "Base",
+    "CardBalanceReading",
     "CommonIncome",
     "Expense",
     "Household",

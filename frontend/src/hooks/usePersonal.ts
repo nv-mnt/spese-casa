@@ -6,6 +6,7 @@ import { useToast } from '@/components/ui/toast';
 import { useMese } from '@/context/MeseContext';
 import { queryKeys } from '@/lib/queryKeys';
 import type {
+  CardBalanceReadingPayload,
   IncomePayload,
   PersonalExpensePayload,
   PersonalPeriodListItem,
@@ -92,6 +93,10 @@ function usePersonalInvalidation(periodId: number) {
     void queryClient.invalidateQueries({ queryKey: queryKeys.personalExpenses(periodId) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.personalSummary(periodId) });
     void queryClient.invalidateQueries({ queryKey: queryKeys.personalPeriods });
+    // Il saldo carta dipende da entrate e uscite pagate.
+    void queryClient.invalidateQueries({
+      queryKey: queryKeys.personalCardReadings(periodId),
+    });
   };
 }
 
@@ -204,6 +209,67 @@ export function useDeletePersonalExpense(periodId: number) {
     onSuccess: () => {
       invalida();
       toast.success('Uscita eliminata');
+    },
+    onError: (error) => toast.error(getErrorMessage(error, 'Eliminazione fallita')),
+  });
+}
+
+
+/* --------------------------------------------------------------- saldo carta */
+
+export function useCardReadings(periodId: number | null) {
+  return useQuery({
+    queryKey: queryKeys.personalCardReadings(periodId ?? 0),
+    queryFn: () => personalApi.listCardReadings(periodId as number),
+    enabled: periodId !== null,
+  });
+}
+
+export function useCreateCardReading(periodId: number) {
+  const invalida = usePersonalInvalidation(periodId);
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: (payload: CardBalanceReadingPayload) =>
+      personalApi.createCardReading(periodId, payload),
+    onSuccess: () => {
+      invalida();
+      toast.success('Saldo carta aggiornato');
+    },
+    onError: (error) =>
+      toast.error(getErrorMessage(error, 'Aggiornamento del saldo fallito')),
+  });
+}
+
+export function useUpdateCardReading(periodId: number) {
+  const invalida = usePersonalInvalidation(periodId);
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number;
+      payload: Partial<CardBalanceReadingPayload>;
+    }) => personalApi.updateCardReading(periodId, id, payload),
+    onSuccess: () => {
+      invalida();
+      toast.success('Rilevazione corretta');
+    },
+    onError: (error) => toast.error(getErrorMessage(error, 'Correzione fallita')),
+  });
+}
+
+export function useDeleteCardReading(periodId: number) {
+  const invalida = usePersonalInvalidation(periodId);
+  const toast = useToast();
+
+  return useMutation({
+    mutationFn: (id: number) => personalApi.removeCardReading(periodId, id),
+    onSuccess: () => {
+      invalida();
+      toast.success('Rilevazione eliminata');
     },
     onError: (error) => toast.error(getErrorMessage(error, 'Eliminazione fallita')),
   });
