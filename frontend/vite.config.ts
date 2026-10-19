@@ -49,14 +49,19 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
-            // Letture delle API: si mostra subito la copia in cache e intanto
-            // si riscarica. Offline resta consultabile quel che si e' gia'
-            // visitato (periodi, riepiloghi, registri).
+            // Letture delle API: prima la rete, la cache solo se non risponde.
+            //
+            // Con StaleWhileRevalidate il service worker restituiva la copia
+            // vecchia e la aggiornava dopo: dopo ogni modifica la UI mostrava
+            // ancora i dati di prima e serviva un reload per vederli. Il dato
+            // fresco deve vincere quando c'e' rete; offline resta comunque
+            // consultabile quel che si e' gia' visitato.
             urlPattern: ({ url, request }) =>
               url.pathname.startsWith('/api/') && request.method === 'GET',
-            handler: 'StaleWhileRevalidate',
+            handler: 'NetworkFirst',
             options: {
               cacheName: 'api-letture',
+              networkTimeoutSeconds: 4,
               expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 14 },
               cacheableResponse: { statuses: [200] },
             },
