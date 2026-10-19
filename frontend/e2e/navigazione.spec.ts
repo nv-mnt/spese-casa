@@ -136,10 +136,22 @@ test('un mese che in una sezione non esiste mostra lo stato vuoto, senza ripiegh
   await expect(page.getByRole('main')).toContainText(/non è ancora aperto/);
 });
 
-test('ricaricando la pagina si riparte dal mese corrente', async ({ page }) => {
+test('ricaricando la pagina il mese scelto resta quello', async ({ page }) => {
   await scegliMese(page, MESE_VECCHIO);
   await expect(page.getByRole('main')).toContainText(MESE_VECCHIO);
 
+  // Ricaricare mentre si lavora su un mese diverso non deve riportare a quello
+  // corrente: si perderebbe il punto in cui si era.
   await page.reload();
-  await expect(page.getByRole('main')).toContainText(MESE_CORRENTE);
+  await expect(page.getByRole('main')).toContainText(MESE_VECCHIO);
+});
+
+test('in una scheda nuova si riparte dal mese corrente', async ({ page, context }) => {
+  await scegliMese(page, MESE_VECCHIO);
+
+  // Il mese sta in sessionStorage: una scheda nuova e' una sessione nuova.
+  const altra = await context.newPage();
+  await altra.goto('/mesi');
+  await expect(altra.getByRole('main')).toContainText(MESE_CORRENTE);
+  await altra.close();
 });

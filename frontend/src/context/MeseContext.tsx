@@ -33,15 +33,37 @@ interface MeseContextValue {
 
 const MeseContext = createContext<MeseContextValue | null>(null);
 
+const CHIAVE = 'spese-casa.mese';
+
+/** Lettura tollerante: in navigazione privata lo storage puo' lanciare. */
+function meseSalvato(): string | null {
+  try {
+    const salvato = window.sessionStorage.getItem(CHIAVE);
+    return salvato && salvato.trim() ? salvato : null;
+  } catch {
+    return null;
+  }
+}
+
 export function MeseProvider({ children }: { children: ReactNode }) {
-  // Volutamente **non** persistito: all'apertura si parte sempre dal mese
-  // corrente, come da specifica, non dall'ultimo consultato.
   const meseCorrente = useMemo(() => suggestPeriodName(), []);
-  const [mese, setMeseState] = useState(meseCorrente);
+
+  // Il mese scelto sopravvive al reload: ricaricando mentre si lavora su un
+  // mese diverso da quello corrente, tornare a ottobre faceva perdere il
+  // punto in cui si era. Si usa sessionStorage e non localStorage apposta:
+  // riaprendo l'app a distanza di giorni si riparte dal mese corrente, non
+  // da uno vecchio.
+  const [mese, setMeseState] = useState(() => meseSalvato() ?? meseCorrente);
 
   const setMese = useCallback((etichetta: string) => {
     const pulito = etichetta.trim();
-    if (pulito) setMeseState(pulito);
+    if (!pulito) return;
+    setMeseState(pulito);
+    try {
+      window.sessionStorage.setItem(CHIAVE, pulito);
+    } catch {
+      /* storage non disponibile: resta valido per questa sessione */
+    }
   }, []);
 
   const value = useMemo<MeseContextValue>(
