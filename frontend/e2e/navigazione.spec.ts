@@ -7,6 +7,9 @@ import {
   accedi,
   apriNavigazione,
   expect,
+  MESE_CORRENTE,
+  MESE_PRECEDENTE,
+  MESE_VECCHIO,
   navigazione,
   riseminaDatabase,
   scegliMese,
@@ -64,7 +67,7 @@ test('regressione: cambiando mese le voci del menu non si sdoppiano', async ({ p
   const voci = navigazione(page).getByRole('link');
   await expect(voci).toHaveCount(4);
 
-  for (const mese of ['Agosto 2026', 'Luglio 2026', 'Settembre 2026']) {
+  for (const mese of [MESE_PRECEDENTE, MESE_VECCHIO, MESE_CORRENTE]) {
     await scegliMese(page, mese);
     await apriNavigazione(page);
     await expect(voci, `voci dopo ${mese}`).toHaveCount(4);
@@ -92,22 +95,22 @@ test('regressione: "Andamento" non blocca la barra laterale', async ({ page }) =
 test('regressione: all\'avvio si vede il mese corrente in tutte e due le sezioni', async ({
   page,
 }) => {
-  await expect(page.getByRole('main')).toContainText('Settembre 2026');
+  await expect(page.getByRole('main')).toContainText(MESE_CORRENTE);
   await page.goto('/budget');
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Settembre 2026');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(MESE_CORRENTE);
 });
 
 test('regressione: il mese scelto resta lo stesso cambiando workspace', async ({ page }) => {
-  await scegliMese(page, 'Luglio 2026');
-  await expect(page.getByRole('main')).toContainText('Luglio 2026');
+  await scegliMese(page, MESE_VECCHIO);
+  await expect(page.getByRole('main')).toContainText(MESE_VECCHIO);
 
   await page.getByRole('button', { name: 'Menu utente' }).click();
   await page.getByRole('menuitem').first().click();
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Luglio 2026');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(MESE_VECCHIO);
 
   await page.getByRole('button', { name: 'Menu utente' }).click();
   await page.getByRole('menuitem').first().click();
-  await expect(page.getByRole('main')).toContainText('Luglio 2026');
+  await expect(page.getByRole('main')).toContainText(MESE_VECCHIO);
 });
 
 test('un mese che in una sezione non esiste mostra lo stato vuoto, senza ripieghi', async ({
@@ -134,9 +137,9 @@ test('un mese che in una sezione non esiste mostra lo stato vuoto, senza ripiegh
 });
 
 test('ricaricando la pagina si riparte dal mese corrente', async ({ page }) => {
-  await scegliMese(page, 'Luglio 2026');
-  await expect(page.getByRole('main')).toContainText('Luglio 2026');
+  await scegliMese(page, MESE_VECCHIO);
+  await expect(page.getByRole('main')).toContainText(MESE_VECCHIO);
 
   await page.reload();
-  await expect(page.getByRole('main')).toContainText('Settembre 2026');
+  await expect(page.getByRole('main')).toContainText(MESE_CORRENTE);
 });

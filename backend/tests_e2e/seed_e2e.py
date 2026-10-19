@@ -7,18 +7,18 @@ cancellare e ricreare tutto senza toccare i dati veri.
 I numeri sono scelti tondi apposta, cosi' le asserzioni dei test si leggono
 come un conto fatto a mano:
 
-Settembre 2026 (mese corrente)
+Mese corrente
     Giuseppe  Affitto 900 + Spesa 100 = 1000
     Angela    Casa     200            =  200
     entrata comune: reso 100 incassato da Giuseppe
     -> totale 1200, entrate comuni 100, netto 1100, quota 550
        contributo Giuseppe 900, Angela 200, saldo 350 (Angela deve a Giuseppe)
 
-Agosto 2026 (il caso 300/150 del collegamento casa -> personale)
+Mese precedente (il caso 300/150 del collegamento casa -> personale)
     Giuseppe paga 300 di affitto, Angela versa 150 di conguaglio
     -> per Giuseppe: uscita derivata 300 + entrata derivata 150 = saldo -150
 
-Luglio 2026 (serve solo ad avere tre mesi per gli andamenti)
+Due mesi fa (serve solo ad avere tre mesi per gli andamenti)
 """
 
 from __future__ import annotations
@@ -67,9 +67,48 @@ PASSWORD = "password123"
 EMAIL_A = "giuseppe@e2etest.it"
 EMAIL_B = "angela@e2etest.it"
 
-MESE_CORRENTE = "Settembre 2026"
-MESE_PRECEDENTE = "Agosto 2026"
-MESE_VECCHIO = "Luglio 2026"
+#: Nomi dei mesi scritti a mano invece che via `locale`: la CI non ha la
+#: locale italiana installata e il risultato deve combaciare con quello che
+#: calcola il frontend (vedi `MESI` in e2e/helpers.ts).
+MESI_IT = (
+    "Gennaio",
+    "Febbraio",
+    "Marzo",
+    "Aprile",
+    "Maggio",
+    "Giugno",
+    "Luglio",
+    "Agosto",
+    "Settembre",
+    "Ottobre",
+    "Novembre",
+    "Dicembre",
+)
+
+
+def mese_fa(quanti: int) -> tuple[int, int]:
+    """(anno, mese) di `quanti` mesi fa rispetto a oggi."""
+    oggi = date.today()
+    indice = oggi.month - 1 - quanti
+    return oggi.year + indice // 12, indice % 12 + 1
+
+
+def etichetta(quanti: int) -> str:
+    anno, mese = mese_fa(quanti)
+    return f"{MESI_IT[mese - 1]} {anno}"
+
+
+def giorno(quanti: int, giorno_del_mese: int) -> date:
+    """Una data dentro il mese di `quanti` mesi fa."""
+    anno, mese = mese_fa(quanti)
+    return date(anno, mese, giorno_del_mese)
+
+
+# I mesi sono **relativi a oggi**: scriverli a mano li faceva scadere al
+# cambio di mese, perche' l'app apre sempre il mese corrente.
+MESE_CORRENTE = etichetta(0)
+MESE_PRECEDENTE = etichetta(1)
+MESE_VECCHIO = etichetta(2)
 
 
 async def semina() -> None:
@@ -126,7 +165,7 @@ async def semina() -> None:
             [
                 Expense(
                     period_id=luglio.id,
-                    data=date(2026, 7, 10),
+                    data=giorno(2, 10),
                     descrizione="Spesa luglio",
                     categoria=Categoria.SPESA,
                     paid_by_id=giuseppe.id,
@@ -134,7 +173,7 @@ async def semina() -> None:
                 ),
                 Expense(
                     period_id=luglio.id,
-                    data=date(2026, 7, 12),
+                    data=giorno(2, 12),
                     descrizione="Casa luglio",
                     categoria=Categoria.CASA,
                     paid_by_id=angela.id,
@@ -150,7 +189,7 @@ async def semina() -> None:
         db.add(
             Expense(
                 period_id=agosto.id,
-                data=date(2026, 8, 1),
+                data=giorno(1, 1),
                 descrizione="Affitto agosto",
                 categoria=Categoria.AFFITTO,
                 paid_by_id=giuseppe.id,
@@ -173,7 +212,7 @@ async def semina() -> None:
             [
                 Expense(
                     period_id=settembre.id,
-                    data=date(2026, 9, 1),
+                    data=giorno(0, 1),
                     descrizione="Affitto settembre",
                     categoria=Categoria.AFFITTO,
                     paid_by_id=giuseppe.id,
@@ -181,7 +220,7 @@ async def semina() -> None:
                 ),
                 Expense(
                     period_id=settembre.id,
-                    data=date(2026, 9, 5),
+                    data=giorno(0, 5),
                     descrizione="Spesa settimanale",
                     categoria=Categoria.SPESA,
                     paid_by_id=giuseppe.id,
@@ -189,7 +228,7 @@ async def semina() -> None:
                 ),
                 Expense(
                     period_id=settembre.id,
-                    data=date(2026, 9, 7),
+                    data=giorno(0, 7),
                     descrizione="Detersivi",
                     categoria=Categoria.CASA,
                     paid_by_id=angela.id,
@@ -200,7 +239,7 @@ async def semina() -> None:
         db.add(
             CommonIncome(
                 period_id=settembre.id,
-                data=date(2026, 9, 9),
+                data=giorno(0, 9),
                 descrizione="Reso Amazon",
                 categoria=CategoriaEntrataComune.RESO,
                 ricevuto_da_id=giuseppe.id,

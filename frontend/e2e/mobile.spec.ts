@@ -8,6 +8,8 @@
 import {
   accedi,
   expect,
+  MESE_CORRENTE,
+  MESE_PRECEDENTE,
   navigazione,
   riseminaDatabase,
   scegliMese,
@@ -25,7 +27,7 @@ test('il riepilogo del mese si legge anche sullo schermo stretto', async ({
   erroriConsole,
 }) => {
   const principale = page.getByRole('main');
-  await expect(principale).toContainText('Settembre 2026');
+  await expect(principale).toContainText(MESE_CORRENTE);
   await expect(principale).toContainText('1200,00');
   await expect(principale).toContainText('550,00');
   await expect(principale).toContainText('Angela deve a Giuseppe');
@@ -66,8 +68,8 @@ test('il drawer si apre, porta a una pagina e si richiude', async ({ page, isMob
 });
 
 test('dal telefono si cambia mese e la vista segue', async ({ page }) => {
-  await scegliMese(page, 'Agosto 2026');
-  await expect(page.getByRole('main')).toContainText('Agosto 2026');
+  await scegliMese(page, MESE_PRECEDENTE);
+  await expect(page.getByRole('main')).toContainText(MESE_PRECEDENTE);
   await expect(page.getByRole('main')).toContainText('300,00');
 });
 

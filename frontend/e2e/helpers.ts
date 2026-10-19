@@ -23,9 +23,39 @@ export const UTENTE_B = {
   nome: 'Angela',
 };
 
-export const MESE_CORRENTE = 'Settembre 2026';
-export const MESE_PRECEDENTE = 'Agosto 2026';
-export const MESE_VECCHIO = 'Luglio 2026';
+/**
+ * Nomi dei mesi scritti a mano e non via Intl: devono combaciare carattere per
+ * carattere con quelli del seed (`MESI_IT` in backend/tests_e2e/seed_e2e.py).
+ */
+const MESI = [
+  'Gennaio',
+  'Febbraio',
+  'Marzo',
+  'Aprile',
+  'Maggio',
+  'Giugno',
+  'Luglio',
+  'Agosto',
+  'Settembre',
+  'Ottobre',
+  'Novembre',
+  'Dicembre',
+] as const;
+
+/** L'etichetta del mese di `quanti` mesi fa rispetto a oggi. */
+function etichettaMese(quanti: number): string {
+  const oggi = new Date();
+  const d = new Date(oggi.getFullYear(), oggi.getMonth() - quanti, 1);
+  return `${MESI[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// Relativi a oggi: scritti a mano scadevano al cambio di mese, perche' l'app
+// apre sempre il mese corrente e il seed non lo conteneva piu'.
+export const MESE_CORRENTE = etichettaMese(0);
+export const MESE_PRECEDENTE = etichettaMese(1);
+export const MESE_VECCHIO = etichettaMese(2);
+/** Un mese che il seed **non** contiene: serve ai test che ne creano uno. */
+export const MESE_PROSSIMO = etichettaMese(-1);
 
 /** Riporta il database E2E ai numeri del seed. */
 export function riseminaDatabase(): void {

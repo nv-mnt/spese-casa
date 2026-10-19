@@ -1,6 +1,14 @@
 /** Autenticazione: chi entra, chi resta fuori, e cosa succede al token. */
 
-import { accedi, esci, expect, riseminaDatabase, test, UTENTE_A } from './helpers';
+import {
+  accedi,
+  esci,
+  expect,
+  MESE_CORRENTE,
+  riseminaDatabase,
+  test,
+  UTENTE_A,
+} from './helpers';
 
 test.beforeAll(() => riseminaDatabase());
 
@@ -13,7 +21,7 @@ test('senza sessione le rotte protette rimandano al login', async ({ page }) => 
 test('login con credenziali giuste apre il mese corrente', async ({ page, erroriConsole }) => {
   await accedi(page);
   await expect(page).toHaveURL(/\/mesi$/);
-  await expect(page.getByRole('main')).toContainText('Settembre 2026');
+  await expect(page.getByRole('main')).toContainText(MESE_CORRENTE);
   expect(erroriConsole, 'console pulita durante il login').toEqual([]);
 });
 
@@ -30,7 +38,7 @@ test('la sessione sopravvive al ricaricamento', async ({ page }) => {
   await accedi(page);
   await page.reload();
   await expect(page.getByRole('button', { name: 'Menu utente' })).toBeVisible();
-  await expect(page.getByRole('main')).toContainText('Settembre 2026');
+  await expect(page.getByRole('main')).toContainText(MESE_CORRENTE);
 });
 
 test('con il token di accesso scaduto la sessione si rinnova da sola', async ({ page }) => {
@@ -42,7 +50,7 @@ test('con il token di accesso scaduto la sessione si rinnova da sola', async ({ 
   );
   await page.reload();
   await expect(page.getByRole('button', { name: 'Menu utente' })).toBeVisible();
-  await expect(page.getByRole('main')).toContainText('Settembre 2026');
+  await expect(page.getByRole('main')).toContainText(MESE_CORRENTE);
   const nuovo = await page.evaluate(() =>
     window.localStorage.getItem('spese-casa.access_token'),
   );
