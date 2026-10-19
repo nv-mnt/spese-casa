@@ -7,7 +7,7 @@
  * **scostamento**: in pratica le spese mai annotate.
  */
 
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle } from '@/components/ui/card';
@@ -56,18 +56,16 @@ export function CardBalanceCard({ summary }: { summary: PersonalSummary }) {
   const elimina = useDeleteCardReading(periodId);
   const toast = useToast();
 
-  const [valore, setValore] = useState('');
+  // Il campo parte dal saldo attuale (di solito si corregge di poco) ed e'
+  // non controllato: la `key` lo rigenera quando il saldo cambia davvero,
+  // senza bisogno di sincronizzarlo a mano in un effetto.
+  const campoSaldo = useRef<HTMLInputElement>(null);
   const [nota, setNota] = useState('');
   const [apertoStorico, setApertoStorico] = useState(false);
   const [daEliminare, setDaEliminare] = useState<CardBalanceReading | null>(null);
 
-  // Il campo parte dal saldo attuale: di solito si corregge di poco.
-  useEffect(() => {
-    setValore(formatAmount(carta.saldo_carta));
-  }, [carta.saldo_carta]);
-
   const salva = async () => {
-    const saldo = parseItalianAmount(valore);
+    const saldo = parseItalianAmount(campoSaldo.current?.value ?? '');
     if (Number.isNaN(saldo)) {
       toast.error('Importo non valido: usa il formato 1.234,56');
       return;
@@ -121,12 +119,13 @@ export function CardBalanceCard({ summary }: { summary: PersonalSummary }) {
           <div className="flex flex-wrap items-end gap-2">
             <div className="relative min-w-[8rem] flex-1">
               <input
+                key={carta.saldo_carta}
+                ref={campoSaldo}
                 id="saldo-carta"
                 inputMode="decimal"
                 className="input tabular pr-8 text-right"
-                value={valore}
+                defaultValue={formatAmount(carta.saldo_carta)}
                 placeholder="0,00"
-                onChange={(e) => setValore(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') void salva();
                 }}
