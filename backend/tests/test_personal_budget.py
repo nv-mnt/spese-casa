@@ -169,6 +169,20 @@ async def test_lista_mesi_con_totali(auth_client: AsyncClient, seeded_personal_p
 async def test_precompila_da_precedente(
     auth_client: AsyncClient, seeded_personal_period: dict
 ):
+    """Si riportano solo le uscite marcate come perpetue, piu' il riporto."""
+    uscite_prima = (
+        await auth_client.get(urls(seeded_personal_period["id"])["expenses"])
+    ).json()
+    # Due voci che tornano ogni mese; le altre 12 sono una tantum.
+    perpetue = [e for e in uscite_prima if e["categoria"] in ("Affitto", "Abbonamenti")][:2]
+    assert len(perpetue) == 2, "il seed deve avere affitto e abbonamenti"
+    for e in perpetue:
+        res = await auth_client.patch(
+            f"{urls(seeded_personal_period['id'])['expenses']}/{e['id']}",
+            json={"perpetua": True},
+        )
+        assert res.status_code == 200, res.text
+
     res = await auth_client.post(
         BASE, json={"etichetta": "Novembre 2026", "precompila_da_precedente": True}
     )
@@ -176,13 +190,18 @@ async def test_precompila_da_precedente(
     nuovo = res.json()["id"]
 
     uscite = (await auth_client.get(urls(nuovo)["expenses"])).json()
-    assert len(uscite) == 14
+    assert len(uscite) == 2
     assert all(e["pagato"] is False for e in uscite)
+    assert all(e["perpetua"] is True for e in uscite)
+    assert sorted(e["negozio_dettaglio"] for e in uscite) == sorted(
+        e["negozio_dettaglio"] for e in perpetue
+    )
 
     entrate = (await auth_client.get(urls(nuovo)["incomes"])).json()
     riporti = [i for i in entrate if i["categoria"] == "Riporto"]
     assert len(riporti) == 1
-    # Il riporto e' il saldo previsto del mese precedente.
+    # Il riporto e' il saldo previsto del mese precedente, invariato: dipende
+    # dai totali del mese di partenza, non da cosa si riporta.
     assert riporti[0]["importo"] == 816.27
 
 

@@ -25,6 +25,7 @@ export function PersonalExpenseForm({ expense, submitting, onSubmit, onCancel }:
   const [dettaglio, setDettaglio] = useState(expense?.negozio_dettaglio ?? '');
   const [importo, setImporto] = useState(formatAmount(expense?.importo));
   const [pagato, setPagato] = useState(expense?.pagato ?? false);
+  const [perpetua, setPerpetua] = useState(expense?.perpetua ?? false);
   const [errore, setErrore] = useState<string | null>(null);
 
   // Cambiando la voce in modifica il form riparte da capo. Si aggiusta
@@ -36,6 +37,7 @@ export function PersonalExpenseForm({ expense, submitting, onSubmit, onCancel }:
     setDettaglio(expense?.negozio_dettaglio ?? '');
     setImporto(formatAmount(expense?.importo));
     setPagato(expense?.pagato ?? false);
+    setPerpetua(expense?.perpetua ?? false);
     setErrore(null);
   }
 
@@ -59,6 +61,7 @@ export function PersonalExpenseForm({ expense, submitting, onSubmit, onCancel }:
       negozio_dettaglio: dettaglio.trim(),
       importo: valore,
       pagato,
+      perpetua,
     });
   };
 
@@ -112,6 +115,28 @@ export function PersonalExpenseForm({ expense, submitting, onSubmit, onCancel }:
             <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
               Se la spunti, l&apos;importo viene gi&agrave; tolto dal saldo carta. Altrimenti
               resta in sospeso e pesa solo sul saldo previsto.
+            </span>
+          </span>
+        </label>
+
+        <label
+          htmlFor="uscita-perpetua"
+          className="flex cursor-pointer items-start gap-3 rounded-[1.25rem] border-2 border-ink bg-secondary/40 p-3.5"
+        >
+          <Checkbox
+            id="uscita-perpetua"
+            className="mt-0.5"
+            checked={perpetua}
+            onCheckedChange={(valore) => setPerpetua(valore === true)}
+          />
+          <span className="text-sm">
+            <span className="font-display font-bold text-foreground">
+              Torna ogni mese
+            </span>
+            <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+              Affitto, abbonamenti, rate: creando il mese nuovo con &laquo;precompila dal
+              precedente&raquo; queste voci si ripresentano da sole, da pagare. Le spese una
+              tantum no.
             </span>
           </span>
         </label>

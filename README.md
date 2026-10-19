@@ -60,6 +60,11 @@ e **PWA installabile** su iPhone ([§ 9](#9-pwa-installarla-su-iphone)).
 * **CardBalanceReading** – una **rilevazione del saldo carta** nel budget
   personale, per chi non segna le spese piccole: dichiari quanto c'è davvero
   sulla carta e l'app smette di fidarsi del solo tracciato.
+* Un'uscita personale può essere **perpetua**: affitto, abbonamenti, rate.
+  Creando un mese nuovo con *precompila dal precedente* si riportano **solo**
+  quelle, come da pagare; gli acquisti una tantum restano nel loro mese. Le
+  voci derivate dalle Spese casa non si copiano mai: le rigenera la
+  sincronizzazione dal movimento condiviso.
 * **RecurringExpenseTemplate** – modello configurabile delle spese fisse
   (Condominio, Affitto, Luce, Acqua) usato per precompilare i nuovi periodi.
 

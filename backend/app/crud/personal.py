@@ -173,8 +173,16 @@ async def create_period(
             )
         )
 
-        # Le uscite fisse si ripresentano tutte come "in sospeso".
+        # Si riportano **solo** le uscite marcate come perpetue (affitto,
+        # abbonamenti...), come "in sospeso". Gli acquisti una tantum restano
+        # nel mese in cui sono stati fatti.
+        #
+        # Le voci derivate dalle Spese casa non si copiano mai: le rigenera
+        # `sync_household` dal movimento condiviso, e duplicarle qui
+        # produrrebbe dei doppioni scollegati dalla sorgente.
         for uscita in uscite_precedenti:
+            if not uscita.perpetua or uscita.source_type is not None:
+                continue
             db.add(
                 PersonalExpense(
                     personal_period_id=period.id,
@@ -182,6 +190,8 @@ async def create_period(
                     negozio_dettaglio=uscita.negozio_dettaglio,
                     importo=uscita.importo,
                     pagato=False,
+                    # Resta perpetua, cosi' si propaga anche ai mesi dopo.
+                    perpetua=True,
                 )
             )
 
@@ -303,6 +313,7 @@ async def create_expense(
         negozio_dettaglio=payload.negozio_dettaglio.strip(),
         importo=payload.importo,
         pagato=payload.pagato,
+        perpetua=payload.perpetua,
     )
     db.add(expense)
     await db.flush()

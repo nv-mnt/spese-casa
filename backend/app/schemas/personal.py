@@ -83,6 +83,8 @@ class PersonalExpenseCreate(BaseModel):
     negozio_dettaglio: str = Field(min_length=1, max_length=255, examples=["UnoMobile"])
     importo: ImportoRiga | None = None
     pagato: bool = False
+    #: True = torna ogni mese, quindi viene riportata nei mesi successivi.
+    perpetua: bool = False
 
 
 class PersonalExpenseUpdate(BaseModel):
@@ -90,6 +92,7 @@ class PersonalExpenseUpdate(BaseModel):
     negozio_dettaglio: str | None = Field(default=None, min_length=1, max_length=255)
     importo: ImportoRiga | None = None
     pagato: bool | None = None
+    perpetua: bool | None = None
 
 
 class PersonalExpenseOut(ORMModel):
@@ -99,6 +102,7 @@ class PersonalExpenseOut(ORMModel):
     negozio_dettaglio: str
     importo: Money | None
     pagato: bool
+    perpetua: bool
     #: Come per le entrate: se presente, la voce viene dalle Spese casa.
     source_type: OrigineVoce | None = None
     source_id: int | None = None

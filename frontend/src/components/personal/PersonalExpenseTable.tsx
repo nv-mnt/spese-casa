@@ -57,6 +57,15 @@ function StatoBadge({ pagato }: { pagato: boolean }) {
 }
 
 /** Le voci che arrivano dalle Spese casa non si toccano da qui. */
+/** Marca le uscite che si ripresentano da sole nei mesi successivi. */
+function PerpetuaBadge() {
+  return (
+    <Badge variant="outline" title="Torna ogni mese: si riporta nel mese successivo">
+      &#128257; Ogni mese
+    </Badge>
+  );
+}
+
 function OrigineBadge({ origine }: { origine: OrigineVoce }) {
   const testo =
     origine === 'conguaglio'
@@ -135,6 +144,7 @@ export function PersonalExpenseTable({
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                   <CategoriaPill categoria={e.categoria} />
                   <StatoBadge pagato={e.pagato} />
+                  {e.perpetua && <PerpetuaBadge />}
                   {e.source_type && <OrigineBadge origine={e.source_type} />}
                 </div>
               </div>
@@ -199,6 +209,7 @@ export function PersonalExpenseTable({
                 <TableCell className="font-medium text-foreground">
                   <span className="flex flex-wrap items-center gap-2">
                     {e.negozio_dettaglio}
+                    {e.perpetua && <PerpetuaBadge />}
                     {e.source_type && <OrigineBadge origine={e.source_type} />}
                   </span>
                 </TableCell>

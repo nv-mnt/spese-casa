@@ -151,6 +151,12 @@ class PersonalExpense(Base, SoftDeleteMixin):
     pagato: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=text("false")
     )
+    #: Spesa che torna ogni mese (affitto, abbonamenti...). Alla creazione di un
+    #: mese nuovo con "precompila dal precedente" vengono riportate **solo**
+    #: queste, cosi' gli acquisti una tantum non si trascinano dietro.
+    perpetua: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false"), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), default=lambda: datetime.now(UTC), nullable=False
     )

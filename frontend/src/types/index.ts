@@ -257,6 +257,8 @@ export interface PersonalExpense {
   importo: number | null;
   /** false = in sospeso (non incide sul saldo carta), true = gia' addebitata. */
   pagato: boolean;
+  /** true = torna ogni mese, quindi si riporta nei mesi successivi. */
+  perpetua: boolean;
   /** Se presente, la voce arriva dalle Spese casa ed e' di sola lettura. */
   source_type: OrigineVoce | null;
   source_id: number | null;
@@ -268,6 +270,7 @@ export interface PersonalExpensePayload {
   negozio_dettaglio: string;
   importo: number | null;
   pagato: boolean;
+  perpetua: boolean;
 }
 
 export interface CategoriaUscitaTotale {
