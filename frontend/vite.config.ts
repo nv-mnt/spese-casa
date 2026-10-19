@@ -89,12 +89,18 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    // Porta dedicata: la 5173 e' gia' presa da altri progetti su questa
+    // macchina. strictPort fa fallire subito invece di slittare in silenzio.
+    port: 5180,
+    strictPort: true,
     // In sviluppo il frontend chiama "/api/..." e Vite fa da proxy verso
     // il backend: nessun problema di CORS e nessun URL assoluto nel codice.
     proxy: {
       '/api': {
-        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:8000',
+        // 127.0.0.1 e non 'localhost': su macOS 'localhost' risolve prima
+        // ::1, e se un altro progetto tiene la 8000 su IPv6 le chiamate
+        // finirebbero sulla sua API (404 misteriosi al login).
+        target: process.env.VITE_PROXY_TARGET ?? 'http://127.0.0.1:8010',
         changeOrigin: true,
       },
     },
@@ -105,7 +111,10 @@ export default defineConfig({
     port: 4173,
     proxy: {
       '/api': {
-        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:8000',
+        // 127.0.0.1 e non 'localhost': su macOS 'localhost' risolve prima
+        // ::1, e se un altro progetto tiene la 8000 su IPv6 le chiamate
+        // finirebbero sulla sua API (404 misteriosi al login).
+        target: process.env.VITE_PROXY_TARGET ?? 'http://127.0.0.1:8010',
         changeOrigin: true,
       },
     },
